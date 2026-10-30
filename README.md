@@ -153,6 +153,7 @@ and `ASYNC_CANCELED`.
 tools/pvs-build.sh             # copy to the pvs system, build, unit tests
 tools/pvs-build.sh it          # ... and the integration tests
 tools/pub400-build.sh          # copy to pub400, build, unit tests
+tools/pub400-build.sh it       # ... and the integration tests
 tools/build.sh LIB DIR         # on IBM i: build from IFS directory DIR into LIB
 tools/integration.sh LIB DIR   # on IBM i: integration tests
 ```
@@ -166,8 +167,8 @@ user `LONGDM`, library `LONGDM1` and directory `/home/LONGDM/async`; set
 `USR`, `LIB` and `DIR` to change them.
 
 GitHub Actions ([.github/workflows/pub400.yml](.github/workflows/pub400.yml))
-runs the same build and tests on pub400 for every push to `main` and every
-pull request. It uses its own IFS directory (`/home/LONGDM/async-ci`) and
+runs the same build, unit tests and integration tests on pub400 for every
+push to `main` and every pull request. It uses its own IFS directory (`/home/LONGDM/async-ci`) and
 needs a repository secret `PUB400_SSH_KEY` holding a private key the pub400
 user accepts. Without the secret the job is skipped with a warning.
 

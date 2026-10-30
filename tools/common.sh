@@ -89,12 +89,17 @@ rpgmod() {
 }
 
 # joblog JOB: the messages in the job log of an ended job (needs its
-# QPJOBLOG spooled file), without routine start/end chatter
+# QPJOBLOG spooled file), without routine start/end chatter. Fails if
+# the job log could not be read at all, so an empty result always
+# means "nothing to report".
 joblog() {
-  /QOpenSys/usr/bin/qsh -c "db2 -S \"select spooled_data from table(
+  local raw
+  raw=$(/QOpenSys/usr/bin/qsh -c "db2 -S \"select spooled_data from table(
       systools.spooled_file_data(job_name => '$1',
                                  spooled_file_name => 'QPJOBLOG')) x\"" \
-    2>/dev/null |
+    2>/dev/null)
+  echo "$raw" | grep -q 'Job Log' || return 1
+  echo "$raw" |
     awk '/^ *[A-Z][A-Z][A-Z][0-9A-F][0-9A-F][0-9A-F][0-9A-F] / {
            keep = $1 !~ /^(CPF1124|CPI1125|CPF1164|CPC)/ }
          keep && /^ *([A-Z][A-Z][A-Z][0-9A-F]+ |.*(Message|To procedure|Statement) \. )/'

@@ -2,7 +2,8 @@
 # ------------------------------------------------------------------
 # pub400-build.sh - build and test the working tree on pub400
 #
-#   tools/pub400-build.sh
+#   tools/pub400-build.sh               build, unit tests
+#   tools/pub400-build.sh it [SCEN...]  also the integration tests
 #
 # Copies the working tree to IFS directory DIR on pub400, then runs
 # tools/build.sh there, which builds ASYNC into LIB and runs the
@@ -37,3 +38,9 @@ rsync -az --delete --exclude .git \
 # read the rest of the script as their input
 ssh -o BatchMode=yes -p $PORT "$USR@$HOST" \
     "bash $DIR/tools/build.sh $LIB $DIR </dev/null" 2>&1 | unbanner
+
+if [ "${1:-}" = it ]; then
+  shift
+  ssh -o BatchMode=yes -p $PORT "$USR@$HOST" \
+      "bash $DIR/tools/integration.sh $LIB $DIR $* </dev/null" 2>&1 | unbanner
+fi

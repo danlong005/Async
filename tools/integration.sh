@@ -74,7 +74,10 @@ for s in $SCENARIOS; do
     echo "!! $s did not pass; job log of $job:"
     joblog "$job" | head -40 | sed 's/^/   /'
     failed=1
-  elif bad=$(joblog "$job" | grep -E "$BADMSGS") && [ -n "$bad" ]; then
+  elif ! messages=$(joblog "$job"); then
+    echo "!! $s passed, but its job log ($job) could not be read to check it"
+    failed=1
+  elif bad=$(echo "$messages" | grep -E "$BADMSGS") && [ -n "$bad" ]; then
     # passed, but something went wrong on a thread it did not see
     echo "!! $s passed, but its job log ($job) has:"
     echo "$bad" | head -20 | sed 's/^/   /'
