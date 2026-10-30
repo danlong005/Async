@@ -143,3 +143,7 @@ qtestsrc/asynctest.rpgle   tests
 examples/asyncdemo.rpgle   three lookups at once, try/catch, then
 tools/                     build scripts
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
