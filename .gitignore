@@ -14,3 +14,6 @@ Thumbs.db
 # Compile listings and event files copied down from IBM i
 *.lst
 *.evfevent
+
+# Test results written by tools/build.sh
+asynctest.xml

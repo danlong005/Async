@@ -1,24 +1,36 @@
 **free
 // ------------------------------------------------------------------
-// ASYNCTEST - self-tests for service program ASYNC
+// ASYNCTEST - unit tests for service program ASYNC
 //
-//   CALL ASYNCTEST       (in a job that allows threads)
+// One source, built two ways:
 //
-// Prints one line per test and ends with "ASYNCTEST OK" or
-// "ASYNCTEST FAILED".
+// - As an iRPGUnit test suite, compiled with DEFINE(IRPGUNIT):
+//     RUCRTRPG TSTPGM(LIB/ASYNCTEST) SRCSTMF('.../asynctest.rpgle')
+//              DEFINE(IRPGUNIT) ...
+//     RUCALLTST TSTPGM(LIB/ASYNCTEST)
 //
-// Each test_ procedure is one test. assert, iEqual and aEqual have
-// iRPGUnit's signatures, so moving to iRPGUnit means exporting the
-// test_ procedures, binding RUTESTCASE instead of the helpers at the
-// bottom, and dropping main.
+// - As a plain program where iRPGUnit is not installed (pub400):
+//     CALL ASYNCTEST
+//   prints one line per test and ends with "ASYNCTEST OK" or
+//   "ASYNCTEST FAILED". The runner and the assert, iEqual and aEqual
+//   at the bottom stand in for iRPGUnit's and take the same
+//   parameters.
 //
-// The task procedures run on other threads; this module is
+// Each exported test_ procedure is one test. The job must allow
+// threads. The task procedures run on other threads; this module is
 // THREAD(*CONCURRENT), so they get their data through arg only.
 // ------------------------------------------------------------------
-ctl-opt main(main) thread(*concurrent) option(*srcstmt: *nodebugio)
-        bnddir('QC2LE');
+/if defined(IRPGUNIT)
+ctl-opt nomain;
+/else
+ctl-opt main(main);
+/endif
+ctl-opt thread(*concurrent) option(*srcstmt: *nodebugio) bnddir('QC2LE');
 
 /copy qrpgleref/async.rpgleinc
+/if defined(IRPGUNIT)
+/copy RPGUNIT/QINCLUDE,TESTCASE
+/endif
 
 dcl-pr printf int(10) extproc('printf');
   format pointer value options(*string);
@@ -30,6 +42,7 @@ dcl-ds psds psds qualified;
   excData char(80) pos(91);
 end-ds;
 
+/if not defined(IRPGUNIT)
 dcl-s gRun int(10);
 dcl-s gFailed int(10);
 dcl-s gFailMsg varchar(512);
@@ -67,12 +80,13 @@ dcl-proc main;
     say('ASYNCTEST FAILED');
   endif;
 end-proc;
+/endif
 
 // ==================================================================
 // Tests
 // ==================================================================
 
-dcl-proc test_runAndAwait;
+dcl-proc test_runAndAwait export;
   dcl-s n int(10) inz(100);
   dcl-s task int(10);
   dcl-s p pointer;
@@ -87,7 +101,7 @@ dcl-proc test_runAndAwait;
 end-proc;
 
 // Four 500 ms tasks take about 500 ms, not 2000
-dcl-proc test_runsInParallel;
+dcl-proc test_runsInParallel export;
   dcl-s ms int(10) dim(4) inz(500);
   dcl-s tasks int(10) dim(4);
   dcl-s start timestamp;
@@ -106,7 +120,7 @@ dcl-proc test_runsInParallel;
   endfor;
 end-proc;
 
-dcl-proc test_errorIsRethrown;
+dcl-proc test_errorIsRethrown export;
   dcl-s task int(10);
   dcl-s caught ind inz(*off);
 
@@ -126,7 +140,7 @@ dcl-proc test_errorIsRethrown;
   Async_Free(task);
 end-proc;
 
-dcl-proc test_throwText;
+dcl-proc test_throwText export;
   dcl-s task int(10);
   dcl-s caught ind inz(*off);
 
@@ -144,7 +158,7 @@ dcl-proc test_throwText;
   Async_Free(task);
 end-proc;
 
-dcl-proc test_promiseResolve;
+dcl-proc test_promiseResolve export;
   dcl-s promise int(10);
   dcl-s helper int(10);
   dcl-s p pointer;
@@ -160,7 +174,7 @@ dcl-proc test_promiseResolve;
   Async_Free(promise);
 end-proc;
 
-dcl-proc test_promiseReject;
+dcl-proc test_promiseReject export;
   dcl-s promise int(10);
   dcl-s helper int(10);
   dcl-s caught ind inz(*off);
@@ -179,7 +193,7 @@ dcl-proc test_promiseReject;
   Async_Free(promise);
 end-proc;
 
-dcl-proc test_resolveTwice;
+dcl-proc test_resolveTwice export;
   dcl-s promise int(10);
   dcl-s one int(10) inz(1);
   dcl-s two int(10) inz(2);
@@ -196,7 +210,7 @@ dcl-proc test_resolveTwice;
   Async_Free(promise);
 end-proc;
 
-dcl-proc test_waitTimeout;
+dcl-proc test_waitTimeout export;
   dcl-s task int(10);
 
   task = Async_Delay(1000);
@@ -207,7 +221,7 @@ dcl-proc test_waitTimeout;
   Async_Free(task);
 end-proc;
 
-dcl-proc test_awaitAny;
+dcl-proc test_awaitAny export;
   dcl-s tasks int(10) dim(3);
   dcl-s i int(10);
 
@@ -222,7 +236,7 @@ dcl-proc test_awaitAny;
   endfor;
 end-proc;
 
-dcl-proc test_awaitAll;
+dcl-proc test_awaitAll export;
   dcl-s n int(10) dim(3);
   dcl-s tasks int(10) dim(3);
   dcl-s p pointer;
@@ -247,7 +261,7 @@ dcl-proc test_awaitAll;
   endfor;
 end-proc;
 
-dcl-proc test_awaitAllRethrows;
+dcl-proc test_awaitAllRethrows export;
   dcl-s n int(10) inz(5);
   dcl-s tasks int(10) dim(2);
   dcl-s caught ind inz(*off);
@@ -266,7 +280,7 @@ dcl-proc test_awaitAllRethrows;
   Async_Free(tasks(2));
 end-proc;
 
-dcl-proc test_then;
+dcl-proc test_then export;
   dcl-s n int(10) inz(10);
   dcl-s first int(10);
   dcl-s second int(10);
@@ -281,7 +295,7 @@ dcl-proc test_then;
   Async_Free(first);
 end-proc;
 
-dcl-proc test_thenRejected;
+dcl-proc test_thenRejected export;
   dcl-s first int(10);
   dcl-s second int(10);
 
@@ -295,7 +309,7 @@ dcl-proc test_thenRejected;
   Async_Free(first);
 end-proc;
 
-dcl-proc test_thenText;
+dcl-proc test_thenText export;
   dcl-s name char(10) inz('RPG');
   dcl-s first int(10);
   dcl-s second int(10);
@@ -310,7 +324,7 @@ dcl-proc test_thenText;
   Async_Free(first);
 end-proc;
 
-dcl-proc test_cancelRunning;
+dcl-proc test_cancelRunning export;
   dcl-s task int(10);
   dcl-s caught ind inz(*off);
 
@@ -327,7 +341,7 @@ dcl-proc test_cancelRunning;
   Async_Free(task);
 end-proc;
 
-dcl-proc test_cancelDelay;
+dcl-proc test_cancelDelay export;
   dcl-s task int(10);
 
   task = Async_Delay(30000);
@@ -338,7 +352,7 @@ dcl-proc test_cancelDelay;
   Async_Free(task);
 end-proc;
 
-dcl-proc test_cancelPromise;
+dcl-proc test_cancelPromise export;
   dcl-s promise int(10);
 
   promise = Async_Promise();
@@ -347,7 +361,7 @@ dcl-proc test_cancelPromise;
   Async_Free(promise);
 end-proc;
 
-dcl-proc test_text;
+dcl-proc test_text export;
   dcl-s name char(10) inz('RPG');
   dcl-s task int(10);
   dcl-s promise int(10);
@@ -370,7 +384,7 @@ dcl-proc test_text;
   Async_Free(promise);
 end-proc;
 
-dcl-proc test_invalidHandle;
+dcl-proc test_invalidHandle export;
   dcl-s caught ind inz(*off);
 
   monitor;
@@ -383,7 +397,7 @@ dcl-proc test_invalidHandle;
   Async_Free(12345);
 end-proc;
 
-dcl-proc test_freedHandleStaysInvalid;
+dcl-proc test_freedHandleStaysInvalid export;
   dcl-s old int(10);
   dcl-s new int(10);
   dcl-s caught ind inz(*off);
@@ -401,7 +415,7 @@ dcl-proc test_freedHandleStaysInvalid;
   Async_Free(new);
 end-proc;
 
-dcl-proc test_freeWhileRunning;
+dcl-proc test_freeWhileRunning export;
   dcl-s ms int(10) inz(200);
   dcl-s task int(10);
   dcl-s caught ind inz(*off);
@@ -418,7 +432,7 @@ dcl-proc test_freeWhileRunning;
   Async_Sleep(400);
 end-proc;
 
-dcl-proc test_manyTasks;
+dcl-proc test_manyTasks export;
   dcl-c COUNT 100;
   dcl-s n int(10) dim(COUNT);
   dcl-s tasks int(10) dim(COUNT);
@@ -438,7 +452,7 @@ dcl-proc test_manyTasks;
   endfor;
 end-proc;
 
-dcl-proc test_nestedAwait;
+dcl-proc test_nestedAwait export;
   dcl-s task int(10);
   dcl-s p pointer;
   dcl-s value int(20) based(p);
@@ -449,7 +463,7 @@ dcl-proc test_nestedAwait;
   Async_Free(task);
 end-proc;
 
-dcl-proc test_selfAwait;
+dcl-proc test_selfAwait export;
   dcl-s task int(10);
 
   task = Async_Run(%paddr(awaitSelf));
@@ -619,8 +633,10 @@ dcl-proc awaitSelf;
   return Async_Await(Async_Current());
 end-proc;
 
+/if not defined(IRPGUNIT)
 // ==================================================================
-// Runner and assertions (iRPGUnit signatures)
+// Runner and assertions for builds without iRPGUnit (same
+// parameters as iRPGUnit's)
 // ==================================================================
 
 dcl-proc run;
@@ -692,6 +708,8 @@ dcl-proc aEqual;
     snd-msg *escape %msg('CPF9898': 'QCPFMSG': gFailMsg);
   endif;
 end-proc;
+
+/endif
 
 // One line to standard output (x'25' is LF in EBCDIC)
 dcl-proc say;

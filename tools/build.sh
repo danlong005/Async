@@ -8,53 +8,22 @@
 # DIR  IFS directory holding this source tree
 #
 # Creates LIB/ASYNC *SRVPGM, LIB/ASYNC *BNDDIR, LIB/ASYNCTEST and
-# LIB/ASYNCDEMO, then runs ASYNCTEST. Compile errors are read from
-# the events file (OPTION(*EVENTF)) LIB/EVFEVENT. Exit status is
-# non-zero if a step or a test fails.
+# LIB/ASYNCDEMO, then runs ASYNCTEST. Where iRPGUnit is installed
+# (library RPGUNIT), ASYNCTEST is built with RUCRTRPG and run with
+# RUCALLTST; elsewhere it is a plain program that prints its
+# results. Compile errors are read from the events file
+# (OPTION(*EVENTF)) LIB/EVFEVENT. Exit status is non-zero if a step
+# or a test fails.
 # ------------------------------------------------------------------
 set -u
 LIB=$1
 DIR=$2
 TEST=${3:-test}
 failed=0
+irpgunit=no
+[ -e /QSYS.LIB/RPGUNIT.LIB/RUCRTRPG.CMD ] && irpgunit=yes
 
-# Messages from a command, without the routine completion chatter
-msgs() {
-  grep -E '^[A-Z]{3}[0-9A-F]{4}:' | grep -vE '^(CPC|CPI|RNS9304)' || true
-}
-
-# Severity 10+ diagnostics of the last compile of member $1
-events() {
-  local mbr=/QSYS.LIB/$LIB.LIB/EVFEVENT.FILE/$1.MBR
-  [ -f "$mbr" ] || return 0
-  /QOpenSys/usr/bin/iconv -f IBM-$(attr "$mbr" CCSID) -t ISO8859-1 "$mbr" |
-    awk '$1 == "ERROR" && $12 + 0 >= 10 {
-           text = $0
-           for (i = 0; i < 13; i++) sub(/^[^ ]+ +/, "", text)
-           sub(/ +$/, "", text)
-           printf "  %s line %d: %s\n", $10, $5, text }'
-}
-
-# compile NAME COMMAND: run COMMAND, report errors, note failure
-compile() {
-  local name=$1 out
-  out=$(system "$2" 2>&1)
-  if echo "$out" | grep -qE "^(RNS9309|RNS9310|CPF|CPD)"; then
-    echo "!! $name failed"
-    echo "$out" | msgs
-    events "$name"
-    failed=1
-    return 1
-  fi
-  echo "   $name ok"
-  events "$name"
-}
-
-rpgmod() {
-  compile "$1" "CRTRPGMOD MODULE($LIB/$1) SRCSTMF('$DIR/$2') \
-    TGTCCSID(*JOB) INCDIR('$DIR') OPTION(*EVENTF *SRCSTMT) \
-    DBGVIEW(*SOURCE) REPLACE(*YES)"
-}
+. "$(dirname "$0")/common.sh"
 
 echo "== building into $LIB"
 rpgmod ASYNC qrpglesrc/async.rpgle &&
@@ -69,8 +38,17 @@ if [ ! -e "/QSYS.LIB/$LIB.LIB/ASYNC.BNDDIR" ]; then
     2>&1 | msgs
 fi
 
-for p in ASYNCTEST:qtestsrc/asynctest.rpgle \
-         ASYNCDEMO:examples/asyncdemo.rpgle; do
+if [ $irpgunit = yes ]; then
+  compile ASYNCTEST "RPGUNIT/RUCRTRPG TSTPGM($LIB/ASYNCTEST) \
+    SRCSTMF('$DIR/qtestsrc/asynctest.rpgle') DEFINE(IRPGUNIT) \
+    INCDIR('$DIR') TGTCCSID(*JOB) DBGVIEW(*SOURCE) \
+    BNDSRVPGM(($LIB/ASYNC))"
+  progs="ASYNCDEMO:examples/asyncdemo.rpgle"
+else
+  progs="ASYNCTEST:qtestsrc/asynctest.rpgle ASYNCDEMO:examples/asyncdemo.rpgle"
+fi
+
+for p in $progs; do
   name=${p%%:*}
   rpgmod "$name" "${p#*:}" &&
   compile "$name" "CRTPGM PGM($LIB/$name) MODULE($LIB/$name) \
@@ -80,6 +58,22 @@ done
 [ "$TEST" = notest ] && exit 0
 
 echo "== ASYNCTEST"
-out=$(system "CALL PGM($LIB/ASYNCTEST)" 2>&1)
-echo "$out" | grep -vE '^(CPC|CPI)'
-echo "$out" | grep -q '^ASYNCTEST OK' || exit 1
+if [ $irpgunit = yes ]; then
+  # A batch job that allows threads (jobs started from SSH may not);
+  # the results come back as a JUnit XML file
+  xml=$DIR/asynctest.xml
+  rm -f "$xml"
+  job=$(submit ASYNCTEST '*YES' "RPGUNIT/RUCALLTST \
+          TSTPGM($LIB/ASYNCTEST) DETAIL(*ALL) XMLSTMF('$xml')")
+  [ -n "$job" ] || { echo "!! could not submit ASYNCTEST"; exit 1; }
+  waitjob "$job"
+  if [ ! -s "$xml" ]; then
+    echo "!! ASYNCTEST wrote no results; see the job log of $job"
+    exit 1
+  fi
+  junit "$xml" || exit 1
+else
+  out=$(system "CALL PGM($LIB/ASYNCTEST)" 2>&1)
+  echo "$out" | grep -vE '^(CPC|CPI)'
+  echo "$out" | grep -q '^ASYNCTEST OK' || exit 1
+fi

@@ -16,6 +16,12 @@
 // A handle is gen * ASYNC_MAX_TASKS + slot - 1, where gen counts
 // how often the slot was used, so a freed handle stays invalid when
 // its slot is reused.
+//
+// ASYNC runs in its caller's activation group, and so do its
+// threads. When that activation group ends, its storage goes, so no
+// task thread may still be running: an exit registered with
+// CEE4RAGE asks every task to cancel and waits for all threads to
+// end before the activation group is destroyed.
 // ------------------------------------------------------------------
 ctl-opt nomain thread(*concurrent) option(*srcstmt: *nodebugio)
         bnddir('QC2LE') text('Async/await for ILE RPG');
@@ -193,6 +199,11 @@ dcl-pr QMHRCVPM extpgm('QMHRCVPM');
   errCode likeds(errc_t);
 end-pr;
 
+dcl-pr CEE4RAGE extproc('CEE4RAGE');
+  exitProc pointer(*proc) const;
+  feedback char(12) options(*omit);
+end-pr;
+
 dcl-ds psds psds qualified;
   excId char(7) pos(40);
   excData char(80) pos(91);
@@ -205,6 +216,11 @@ dcl-ds gCond likeds(cond_t) inz(*likeds) static(*allthread);
 dcl-s gTask pointer dim(ASYNC_MAX_TASKS) inz(*null) static(*allthread);
 dcl-s gGen int(10) dim(ASYNC_MAX_TASKS) inz(0) static(*allthread);
 dcl-s gNextSlot int(10) inz(1) static(*allthread);
+// Task threads still running, freed tasks included
+dcl-s gThreads int(10) inz(0) static(*allthread);
+// The activation group is ending: every task counts as canceled
+dcl-s gEnding ind inz(*off) static(*allthread);
+dcl-s gExitRegistered ind inz(*off) static(*allthread);
 
 // One per thread (THREAD(*CONCURRENT) globals are thread local)
 dcl-s tCurrent int(10) inz(0);
@@ -298,6 +314,11 @@ dcl-proc startThread;
     t.delayMs = delayMs;
     t.threadActive = *on;
     h = t.handle;
+    gThreads += 1;
+    if not gExitRegistered;
+      CEE4RAGE(%paddr(activationGroupEnding): *omit);
+      gExitRegistered = *on;
+    endif;
   endif;
   mutexUnlock();
   if p = *null;
@@ -313,9 +334,10 @@ dcl-proc startThread;
   if rc <> 0;
     mutexLock();
     destroyTask(p);
+    gThreads -= 1;
     mutexUnlock();
     fail('Async: could not start a thread (errno ' + %char(rc)
-       + '). Does the job allow threads? Use ALWMLTTHD(*YES).');
+       + '). Does the job allow threads? Use ALWMLTTHD(*YES)');
   endif;
   return h;
 end-proc;
@@ -365,15 +387,19 @@ dcl-proc threadMain;
     endif;
   endif;
 
+  tCurrent = 0;
+  tTask = *null;
+
+  // Last use of activation group storage: once gThreads drops, the
+  // activation group may end at any moment
   mutexLock();
   t.threadActive = *off;
   if t.autoFree;
     destroyTask(p);
   endif;
+  gThreads -= 1;
+  pthread_cond_broadcast(gCond);
   mutexUnlock();
-
-  tCurrent = 0;
-  tTask = *null;
   return *null;
 end-proc;
 
@@ -388,13 +414,13 @@ dcl-proc runDelay;
   mutexLock();
   if t.delayMs > 0;
     expiration(t.delayMs: deadline);
-    dow not t.cancelReq;
+    dow not t.cancelReq and not gEnding;
       if pthread_cond_timedwait(gCond: gMutex: deadline) <> 0;
         leave;
       endif;
     enddo;
   endif;
-  if t.cancelReq;
+  if t.cancelReq or gEnding;
     settle(p: ASYNC_CANCELED: *null);
   else;
     settle(p: ASYNC_FULFILLED: *null);
@@ -441,7 +467,7 @@ dcl-proc awaitSource;
       endif;
       leave;
     endif;
-    if t.cancelReq;
+    if t.cancelReq or gEnding;
       settle(p: ASYNC_CANCELED: *null);
       leave;
     endif;
@@ -942,7 +968,7 @@ dcl-proc Async_IsCancelRequested export;
   p = tTask;
   mutexLock();
   if p <> *null;
-    canceled = t.cancelReq;
+    canceled = t.cancelReq or gEnding;
   endif;
   mutexUnlock();
   return canceled;
@@ -976,6 +1002,43 @@ dcl-proc Async_Sleep export;
     interval.tv_nsec = %rem(ms: 1000) * 1000000;
     pthread_delay_np(interval);
   endif;
+end-proc;
+
+// ==================================================================
+// Activation group end
+// ==================================================================
+
+// Called (CEE4RAGE) when the activation group ASYNC runs in ends.
+// Cancels every task and waits for every task thread to end, so none
+// is left running in storage that is about to be destroyed. Tasks
+// that do not check for cancellation are waited for until they
+// return.
+dcl-proc activationGroupEnding;
+  dcl-pi *n;
+    agMark uns(10);
+    reason uns(10);
+    resultCode uns(10);
+    userRc uns(10);
+  end-pi;
+  dcl-s p pointer;
+  dcl-ds t likeds(task_t) based(p);
+  dcl-s i int(10);
+
+  mutexLock();
+  gEnding = *on;
+  for i = 1 to ASYNC_MAX_TASKS;
+    p = gTask(i);
+    if p <> *null;
+      if t.state = ASYNC_PENDING and t.kind = KIND_PROMISE;
+        settle(p: ASYNC_CANCELED: *null);
+      endif;
+    endif;
+  endfor;
+  pthread_cond_broadcast(gCond);
+  dow gThreads > 0;
+    pthread_cond_wait(gCond: gMutex);
+  enddo;
+  mutexUnlock();
 end-proc;
 
 // ==================================================================
