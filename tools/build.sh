@@ -7,8 +7,8 @@
 # LIB  library to build into (ASYNC* objects in it are replaced)
 # DIR  IFS directory holding this source tree
 #
-# Creates LIB/ASYNC *SRVPGM, LIB/ASYNC *BNDDIR, LIB/ASYNCTEST and
-# LIB/ASYNCDEMO, then runs ASYNCTEST. Where iRPGUnit is installed
+# Creates LIB/ASYNC *SRVPGM, LIB/ASYNC *BNDDIR, LIB/ASYNCTEST and a
+# program for each source in examples/, then runs ASYNCTEST. Where iRPGUnit is installed
 # (library RPGUNIT), ASYNCTEST is built with RUCRTRPG and run with
 # RUCALLTST; elsewhere it is a plain program that prints its
 # results. Compile errors are read from the events file
@@ -24,6 +24,7 @@ irpgunit=no
 [ -e /QSYS.LIB/RPGUNIT.LIB/RUCRTRPG.CMD ] && irpgunit=yes
 
 . "$(dirname "$0")/common.sh"
+cd "$DIR" || exit 1
 
 echo "== building into $LIB"
 rpgmod ASYNC qrpglesrc/async.rpgle &&
@@ -43,14 +44,18 @@ if [ $irpgunit = yes ]; then
     SRCSTMF('$DIR/qtestsrc/asynctest.rpgle') DEFINE(IRPGUNIT) \
     INCDIR('$DIR') TGTCCSID(*JOB) DBGVIEW(*SOURCE) \
     BNDSRVPGM(($LIB/ASYNC))"
-  progs="ASYNCDEMO:examples/asyncdemo.rpgle"
+  progs=""
 else
-  progs="ASYNCTEST:qtestsrc/asynctest.rpgle ASYNCDEMO:examples/asyncdemo.rpgle"
+  progs="qtestsrc/asynctest.rpgle"
 fi
 
-for p in $progs; do
-  name=${p%%:*}
-  rpgmod "$name" "${p#*:}" &&
+# The examples: one program per source, named after the file
+for src in $progs examples/*.rpgle examples/*.sqlrpgle; do
+  name=$(basename "$src" | sed 's/\..*//' | tr a-z A-Z)
+  case $src in
+    *.sqlrpgle) sqlmod "$name" "$src" ;;
+    *)          rpgmod "$name" "$src" ;;
+  esac &&
   compile "$name" "CRTPGM PGM($LIB/$name) MODULE($LIB/$name) \
     BNDSRVPGM(($LIB/ASYNC)) ACTGRP(*NEW) REPLACE(*YES)"
 done

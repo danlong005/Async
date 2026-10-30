@@ -71,6 +71,7 @@ dcl-proc main;
   say('Then: ' + name);
   Async_Free(shout);
   Async_Free(task);
+  say('Done.');
 end-proc;
 
 // arg: int(10) customer id. Result: varchar(50) customer name

@@ -32,10 +32,7 @@ BADMSGS='^ *(MCH[0-9A-F]{4}|CPF9999|CEE9901|RNQ[0-9]{4}|RNX[0-9]{4}) '
 
 
 echo "== building the integration tests into $LIB"
-compile ASYNCIT "CRTSQLRPGI OBJ($LIB/ASYNCIT) \
-  SRCSTMF('$DIR/qtestsrc/asyncit.sqlrpgle') OBJTYPE(*MODULE) \
-  COMMIT(*NONE) DBGVIEW(*SOURCE) OPTION(*EVENTF) RPGPPOPT(*LVL2) \
-  COMPILEOPT('TGTCCSID(*JOB) INCDIR(''$DIR'')') REPLACE(*YES)" &&
+sqlmod ASYNCIT qtestsrc/asyncit.sqlrpgle &&
 compile ASYNCIT "CRTPGM PGM($LIB/ASYNCIT) MODULE($LIB/ASYNCIT) \
   BNDSRVPGM(($LIB/ASYNC)) ACTGRP(*NEW) REPLACE(*YES)"
 rpgmod ASYNCAGE qtestsrc/asyncage.rpgle &&

@@ -1,4 +1,4 @@
-# Build ASYNC on pub400 and run its unit and integration tests.
+# Build ASYNC on pub400; run its unit and integration tests and examples.
 #
 # Needs repository secret PUB400_SSH_KEY: a private key whose public
 # half is in ~/.ssh/authorized_keys of the pub400 user. Optional
@@ -51,6 +51,7 @@ jobs:
       - name: Build, unit and integration tests on pub400
         if: env.HAS_KEY == 'true'
         # Its own IFS directory, so it never mixes with a local build's.
-        # "it" adds the integration tests (tools/integration.sh) after
-        # the build and unit tests.
+        # "it" adds the integration tests (tools/integration.sh) and
+        # runs the examples (tools/examples.sh) after the build and
+        # unit tests.
         run: DIR=/home/$USR/async-ci tools/pub400-build.sh it

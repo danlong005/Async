@@ -82,6 +82,17 @@ junit() {
     END { printf "%d tests, %d failed\n", tests, bad; exit bad > 0 }'
 }
 
+# sqlmod NAME SOURCE: SQL RPG module NAME from stream file SOURCE
+# (relative to DIR). The precompiler cannot open UTF-8 source or
+# resolve /copy itself, so the RPG preprocessor expands it first.
+sqlmod() {
+  compile "$1" "CRTSQLRPGI OBJ($LIB/$1) SRCSTMF('$DIR/$2') \
+    OBJTYPE(*MODULE) COMMIT(*NONE) DBGVIEW(*SOURCE) OPTION(*EVENTF) \
+    RPGPPOPT(*LVL2) COMPILEOPT('TGTCCSID(*JOB) INCDIR(''$DIR'')') \
+    REPLACE(*YES)"
+}
+
+# rpgmod NAME SOURCE: RPG module NAME from stream file SOURCE
 rpgmod() {
   compile "$1" "CRTRPGMOD MODULE($LIB/$1) SRCSTMF('$DIR/$2') \
     TGTCCSID(*JOB) INCDIR('$DIR') OPTION(*EVENTF *SRCSTMT) \

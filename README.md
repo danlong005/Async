@@ -141,6 +141,28 @@ and up to `ASYNC_MAX_TASKS` (4096) can exist at once. A freed handle stays
 invalid even after its slot is reused. To fire and forget, call `Async_Run`
 and then `Async_Free` straight away; the task is released when it ends.
 
+## Examples
+
+Each example is a short, commented program in [examples/](examples/). The
+build creates one program per example. To run one, use a job that allows
+threads:
+
+```
+SBMJOB CMD(CALL ASYNCTIME) ALWMLTTHD(*YES)
+```
+
+Their output goes to standard output, which in a batch job is the
+spooled file `QPRINT`.
+
+| Program     | Shows |
+|-------------|-------|
+| [ASYNCDEMO](examples/asyncdemo.rpgle) | the basics: three lookups at once, `Async_AwaitAll`, catching a failed task, `Async_Then` |
+| [ASYNCSQL](examples/asyncsql.sqlrpgle) | embedded SQL in tasks, an ordinary procedure wrapped as a task, a shared result template, and what to expect from the timings |
+| [ASYNCTIME](examples/asynctime.rpgle) | a deadline: work raced against `Async_Delay` with `Async_AwaitAny` and canceled if late; the same with `Async_Wait(task: ms)` |
+| [ASYNCPROM](examples/asyncprom.rpgle) | promises: one worker settles each caller's promise with `Async_Resolve` or `Async_Reject` |
+| [ASYNCCNCL](examples/asynccncl.rpgle) | cancellation: `Async_ThrowIfCanceled` (stop, no result) and `Async_IsCancelRequested` (stop, keep partial result) |
+| [ASYNCBG](examples/asyncbg.rpgle) | fire and forget: `Async_Run` then `Async_Free`, heap-owned arguments, and the program end waiting for background work |
+
 ## API
 
 See [qrpgleref/async.rpgleinc](qrpgleref/async.rpgleinc) for every
@@ -151,15 +173,16 @@ and `ASYNC_CANCELED`.
 
 ```sh
 tools/pvs-build.sh             # copy to the pvs system, build, unit tests
-tools/pvs-build.sh it          # ... and the integration tests
+tools/pvs-build.sh it          # ... and the integration tests and examples
 tools/pub400-build.sh          # copy to pub400, build, unit tests
-tools/pub400-build.sh it       # ... and the integration tests
+tools/pub400-build.sh it       # ... and the integration tests and examples
 tools/build.sh LIB DIR         # on IBM i: build from IFS directory DIR into LIB
 tools/integration.sh LIB DIR   # on IBM i: integration tests
+tools/examples.sh LIB          # on IBM i: run the examples and check them
 ```
 
 `build.sh` creates `LIB/ASYNC` (`*SRVPGM` and `*BNDDIR`), `LIB/ASYNCTEST` and
-`LIB/ASYNCDEMO`, then runs `ASYNCTEST`. It replaces only those objects.
+a program for each example, then runs `ASYNCTEST`. It replaces only those objects.
 Compile errors are read from `LIB/EVFEVENT`. `pvs-build.sh` uses the ssh
 host `pvs`, library `ASYNC` and directory `/home/dlong/async`; set `HOST`,
 `LIB` and `DIR` to change them. `pub400-build.sh` defaults to
@@ -167,8 +190,9 @@ user `LONGDM`, library `LONGDM1` and directory `/home/LONGDM/async`; set
 `USR`, `LIB` and `DIR` to change them.
 
 GitHub Actions ([.github/workflows/pub400.yml](.github/workflows/pub400.yml))
-runs the same build, unit tests and integration tests on pub400 for every
-push to `main` and every pull request. It uses its own IFS directory (`/home/LONGDM/async-ci`) and
+runs the same build, unit tests, integration tests and examples on pub400
+for every push to `main` and every pull request. An example fails if it
+doesn't print its final `Done.` or if its job log shows a crash. It uses its own IFS directory (`/home/LONGDM/async-ci`) and
 needs a repository secret `PUB400_SSH_KEY` holding a private key the pub400
 user accepts. Without the secret the job is skipped with a warning.
 
@@ -217,7 +241,7 @@ qtestsrc/asynctest.rpgle   unit tests (iRPGUnit or standalone)
 qtestsrc/asyncit.sqlrpgle  integration tests
 qtestsrc/asyncage.rpgle    helper for the agend scenario
 qtestsrc/asyncnts.rpgle    helper for the nothreadsafe scenario
-examples/asyncdemo.rpgle   three lookups at once, try/catch, then
+examples/                  example programs (see Examples)
 tools/                     build scripts
 ```
 
