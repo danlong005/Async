@@ -26,7 +26,7 @@
 ctl-opt main(main) thread(*concurrent) option(*srcstmt: *nodebugio)
         bnddir('QC2LE');
 
-/copy qrpgleref/async.rpgleinc
+/copy qrpglesrc/async.rpgleinc
 
 dcl-pr printf int(10) extproc('printf');
   format pointer value options(*string);

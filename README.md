@@ -51,7 +51,7 @@ A task procedure takes one pointer and returns one pointer:
 
 ```rpgle
 ctl-opt thread(*concurrent) bnddir('ASYNC');
-/copy qrpgleref/async.rpgleinc
+/copy qrpglesrc/async.rpgleinc
 
 dcl-proc SlowSquare;
   dcl-pi *n pointer;
@@ -165,7 +165,7 @@ spooled file `QPRINT`.
 
 ## API
 
-See [qrpgleref/async.rpgleinc](qrpgleref/async.rpgleinc) for every
+See [qrpglesrc/async.rpgleinc](qrpglesrc/async.rpgleinc) for every
 procedure. States are `ASYNC_PENDING`, `ASYNC_FULFILLED`, `ASYNC_REJECTED`
 and `ASYNC_CANCELED`.
 
@@ -234,7 +234,7 @@ at.
 ## Layout
 
 ```
-qrpgleref/async.rpgleinc   prototypes and constants (copy this)
+qrpglesrc/async.rpgleinc   prototypes and constants (copy this)
 qrpglesrc/async.rpgle      the service program
 qsrvsrc/async.bnd          binder source
 qtestsrc/asynctest.rpgle   unit tests (iRPGUnit or standalone)

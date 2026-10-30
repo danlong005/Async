@@ -27,7 +27,7 @@ ctl-opt main(main);
 /endif
 ctl-opt thread(*concurrent) option(*srcstmt: *nodebugio) bnddir('QC2LE');
 
-/copy qrpgleref/async.rpgleinc
+/copy qrpglesrc/async.rpgleinc
 /if defined(IRPGUNIT)
 /copy RPGUNIT/QINCLUDE,TESTCASE
 /endif

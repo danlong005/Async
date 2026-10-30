@@ -8,7 +8,7 @@
 // ------------------------------------------------------------------
 ctl-opt main(main) option(*srcstmt: *nodebugio);
 
-/copy qrpgleref/async.rpgleinc
+/copy qrpglesrc/async.rpgleinc
 
 dcl-ds psds psds qualified;
   excId char(7) pos(40);

@@ -12,7 +12,7 @@
 // ------------------------------------------------------------------
 ctl-opt main(main) thread(*concurrent) option(*srcstmt: *nodebugio);
 
-/copy qrpgleref/async.rpgleinc
+/copy qrpglesrc/async.rpgleinc
 
 dcl-proc main;
   dcl-s ms int(10) inz(2000) static(*allthread);

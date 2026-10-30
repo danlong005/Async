@@ -26,7 +26,7 @@
 ctl-opt nomain thread(*concurrent) option(*srcstmt: *nodebugio)
         bnddir('QC2LE') text('Async/await for ILE RPG');
 
-/copy qrpgleref/async.rpgleinc
+/copy qrpglesrc/async.rpgleinc
 
 dcl-c KIND_RUN 1;
 dcl-c KIND_PROMISE 2;
