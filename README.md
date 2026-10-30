@@ -1,5 +1,7 @@
 # Async: async/await for ILE RPG
 
+[![pub400](https://github.com/danlong005/Async/actions/workflows/pub400.yml/badge.svg?branch=main)](https://github.com/danlong005/Async/actions/workflows/pub400.yml)
+
 ASYNC is a service program that gives RPG tasks you can start, `await`,
 combine, chain and cancel, much like JavaScript promises or .NET tasks.
 Each task runs on its own POSIX thread.
