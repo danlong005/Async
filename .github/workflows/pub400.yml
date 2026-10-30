@@ -1,0 +1,54 @@
+# Build ASYNC on pub400 and run its tests.
+#
+# Needs repository secret PUB400_SSH_KEY: a private key whose public
+# half is in ~/.ssh/authorized_keys of the pub400 user. Optional
+# repository variables PUB400_USER (default LONGDM) and PUB400_LIB
+# (default LONGDM1) choose where it builds.
+name: pub400
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# pub400 is one shared machine and library: one build at a time
+concurrency:
+  group: pub400
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      USR: ${{ vars.PUB400_USER || 'LONGDM' }}
+      LIB: ${{ vars.PUB400_LIB || 'LONGDM1' }}
+      HAS_KEY: ${{ secrets.PUB400_SSH_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pull requests from forks get no secrets
+      - name: Skip without the pub400 key
+        if: env.HAS_KEY != 'true'
+        run: echo "::warning::PUB400_SSH_KEY is not set; skipping the pub400 build"
+
+      - name: Set up SSH
+        if: env.HAS_KEY == 'true'
+        env:
+          KEY: ${{ secrets.PUB400_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_pub400
+          chmod 600 ~/.ssh/id_pub400
+          # pub400's host key, pinned rather than trusted on first use
+          echo '[pub400.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9bBRME9Px9aBJ4nujQzpcz9DDAmBkkaL8N7gRWqqtT' > ~/.ssh/known_hosts
+          printf 'Host pub400.com\n  IdentityFile ~/.ssh/id_pub400\n  IdentitiesOnly yes\n' > ~/.ssh/config
+
+      - name: Build and test on pub400
+        if: env.HAS_KEY == 'true'
+        # Its own IFS directory, so it never mixes with a local build's
+        run: DIR=/home/$USR/async-ci tools/pub400-build.sh

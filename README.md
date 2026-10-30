@@ -122,6 +122,12 @@ Compile errors are read from `LIB/EVFEVENT`. `pub400-build.sh` defaults to
 user `LONGDM`, library `LONGDM1` and directory `/home/LONGDM/async`; set
 `USR`, `LIB` and `DIR` to change them.
 
+GitHub Actions ([.github/workflows/pub400.yml](.github/workflows/pub400.yml))
+runs the same build and tests on pub400 for every push to `main` and every
+pull request. It uses its own IFS directory (`/home/LONGDM/async-ci`) and
+needs a repository secret `PUB400_SSH_KEY` holding a private key the pub400
+user accepts. Without the secret the job is skipped with a warning.
+
 Bind your programs with `BNDDIR('ASYNC')` or `BNDSRVPGM((ASYNC))`. The
 binder source ([qsrvsrc/async.bnd](qsrvsrc/async.bnd)) has a fixed
 signature, so only ever add new exports at the end.
