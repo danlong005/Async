@@ -48,7 +48,7 @@ jobs:
           echo '[pub400.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9bBRME9Px9aBJ4nujQzpcz9DDAmBkkaL8N7gRWqqtT' > ~/.ssh/known_hosts
           printf 'Host pub400.com\n  IdentityFile ~/.ssh/id_pub400\n  IdentitiesOnly yes\n' > ~/.ssh/config
 
-      - name: Build, unit and integration tests on pub400
+      - name: Build, tests and examples on pub400
         if: env.HAS_KEY == 'true'
         # Its own IFS directory, so it never mixes with a local build's.
         # "it" adds the integration tests (tools/integration.sh) and
