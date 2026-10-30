@@ -67,7 +67,7 @@ dcl-pr Async_Delay int(10) extproc(*dclcase);
 end-pr;
 
 // A task with no thread of its own: it stays pending until
-// Async_Resolve, Async_ResolveText, Async_Reject or Async_Cancel.
+// Async_Resolve, Async_Reject or Async_Cancel.
 // Like .NET's TaskCompletionSource.
 dcl-pr Async_Promise int(10) extproc(*dclcase);
 end-pr;
@@ -78,14 +78,6 @@ end-pr;
 // the escape message it ended with is sent again, to the caller of
 // Async_Await, so MONITOR catches it; a canceled task sends CPF9898.
 dcl-pr Async_Await pointer extproc(*dclcase);
-  task int(10) value;
-end-pr;
-
-// Async_Await for tasks whose result is text (Async_ReturnText,
-// Async_ResolveText). Text results are stored as a varchar(65535),
-// so a procedure given one (Async_Then) reads it with
-//   dcl-s text varchar(65535) based(arg);
-dcl-pr Async_AwaitText varchar(65535) extproc(*dclcase);
   task int(10) value;
 end-pr;
 
@@ -134,11 +126,6 @@ dcl-pr Async_Resolve ind extproc(*dclcase);
   task int(10) value;
   result pointer value options(*nopass);
   len int(10) value options(*nopass);
-end-pr;
-
-dcl-pr Async_ResolveText ind extproc(*dclcase);
-  task int(10) value;
-  text varchar(65535) const;
 end-pr;
 
 // Reject a promise; Async_Await sends CPF9898 with text
@@ -198,10 +185,6 @@ end-pr;
 dcl-pr Async_Return pointer extproc(*dclcase);
   data pointer value;
   len int(10) value;
-end-pr;
-
-dcl-pr Async_ReturnText pointer extproc(*dclcase);
-  text varchar(65535) const;
 end-pr;
 
 // End the current task procedure with an error (CPF9898 text)

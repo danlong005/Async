@@ -514,20 +514,6 @@ dcl-proc Async_Await export;
   return awaitOne(task);
 end-proc;
 
-dcl-proc Async_AwaitText export;
-  dcl-pi *n varchar(65535);
-    task int(10) value;
-  end-pi;
-  dcl-s res pointer;
-  dcl-s text varchar(65535) based(res);
-
-  res = awaitOne(task);
-  if res = *null;
-    return '';
-  endif;
-  return text;
-end-proc;
-
 dcl-proc Async_AwaitAll export;
   dcl-pi *n;
     tasks int(10) dim(ASYNC_MAX_TASKS) const options(*varsize);
@@ -754,18 +740,6 @@ dcl-proc Async_Resolve export;
   return settled;
 end-proc;
 
-dcl-proc Async_ResolveText export;
-  dcl-pi *n ind;
-    task int(10) value;
-    text varchar(65535) const;
-  end-pi;
-  dcl-s copy varchar(65535);
-
-  // stored as a varchar(65535): 2 bytes of length, then the text
-  copy = text;
-  return Async_Resolve(task: %addr(copy): %len(copy) + 2);
-end-proc;
-
 dcl-proc Async_Reject export;
   dcl-pi *n ind;
     task int(10) value;
@@ -946,30 +920,6 @@ dcl-proc Async_Return export;
   mutexUnlock();
   if p = *null;
     fail('Async_Return: not called from a task');
-  endif;
-  return res;
-end-proc;
-
-dcl-proc Async_ReturnText export;
-  dcl-pi *n pointer;
-    text varchar(65535) const;
-  end-pi;
-  dcl-s copy varchar(65535);
-  dcl-s p pointer;
-  dcl-ds t likeds(task_t) based(p);
-  dcl-s res pointer inz(*null);
-
-  // stored as a varchar(65535): 2 bytes of length, then the text
-  copy = text;
-  p = tTask;
-  mutexLock();
-  if p <> *null;
-    keepResult(p: %addr(copy): %len(copy) + 2);
-    res = t.resultBuf;
-  endif;
-  mutexUnlock();
-  if p = *null;
-    fail('Async_ReturnText: not called from a task');
   endif;
   return res;
 end-proc;

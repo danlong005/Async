@@ -31,6 +31,8 @@ dcl-proc main;
   dcl-s shout int(10);
   dcl-s start timestamp;
   dcl-s i int(10);
+  dcl-s p pointer;
+  dcl-s name varchar(50) based(p);    // the result of lookUp
 
   ids(1) = 1;
   ids(2) = 2;
@@ -45,7 +47,8 @@ dcl-proc main;
   // await Promise.all(tasks)
   Async_AwaitAll(tasks: 3);
   for i = 1 to 3;
-    say('Customer ' + %char(ids(i)) + ': ' + Async_AwaitText(tasks(i)));
+    p = Async_Await(tasks(i));
+    say('Customer ' + %char(ids(i)) + ': ' + name);
     Async_Free(tasks(i));
   endfor;
   say('Three lookups took '
@@ -54,7 +57,8 @@ dcl-proc main;
   // try { await lookUp(999) } catch (e) { ... }
   task = Async_Run(%paddr(lookUp): %addr(missing));
   monitor;
-    say(Async_AwaitText(task));
+    p = Async_Await(task);
+    say(name);
   on-error;
     say('Caught: ' + Async_ErrorText(task));
   endmon;
@@ -63,39 +67,44 @@ dcl-proc main;
   // lookUp(1).then(toUpper)
   task = Async_Run(%paddr(lookUp): %addr(ids(1)));
   shout = Async_Then(task: %paddr(toUpper));
-  say('Then: ' + Async_AwaitText(shout));
+  p = Async_Await(shout);
+  say('Then: ' + name);
   Async_Free(shout);
   Async_Free(task);
 end-proc;
 
-// arg: int(10) customer id. Result: the customer's name (text)
+// arg: int(10) customer id. Result: varchar(50) customer name
 dcl-proc lookUp;
   dcl-pi *n pointer;
     arg pointer value;
   end-pi;
   dcl-s id int(10) based(arg);
+  dcl-s name varchar(50);
 
   Async_Sleep(1000);      // stands in for a slow file, SQL or HTTP call
   select;
   when id = 1;
-    return Async_ReturnText('Ada Lovelace');
+    name = 'Ada Lovelace';
   when id = 2;
-    return Async_ReturnText('Grace Hopper');
+    name = 'Grace Hopper';
   when id = 3;
-    return Async_ReturnText('Frances Allen');
+    name = 'Frances Allen';
+  other;
+    Async_Throw('No customer ' + %char(id));
   endsl;
-  Async_Throw('No customer ' + %char(id));
-  return *null;
+  return Async_Return(%addr(name): %size(name));
 end-proc;
 
-// arg: the text result of the task this continues
+// arg: the varchar(50) result of the task this continues
 dcl-proc toUpper;
   dcl-pi *n pointer;
     arg pointer value;
   end-pi;
-  dcl-s name varchar(65535) based(arg);
+  dcl-s name varchar(50) based(arg);
+  dcl-s upper varchar(50);
 
-  return Async_ReturnText(%upper(name));
+  upper = %upper(name);
+  return Async_Return(%addr(upper): %size(upper));
 end-proc;
 
 // One line to standard output (x'25' is LF in EBCDIC)

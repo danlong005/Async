@@ -299,10 +299,13 @@ dcl-proc test_thenText;
   dcl-s name char(10) inz('RPG');
   dcl-s first int(10);
   dcl-s second int(10);
+  dcl-s p pointer;
+  dcl-s greeting varchar(100) based(p);
 
   first = Async_Run(%paddr(greet): %addr(name));
   second = Async_Then(first: %paddr(shout));
-  aEqual('HELLO, RPG!': Async_AwaitText(second));
+  p = Async_Await(second);
+  aEqual('HELLO, RPG!': greeting);
   Async_Free(second);
   Async_Free(first);
 end-proc;
@@ -348,14 +351,22 @@ dcl-proc test_text;
   dcl-s name char(10) inz('RPG');
   dcl-s task int(10);
   dcl-s promise int(10);
+  dcl-s value varchar(100);
+  dcl-s p pointer;
+  dcl-s result varchar(100) based(p);
 
   task = Async_Run(%paddr(greet): %addr(name));
-  aEqual('Hello, RPG!': Async_AwaitText(task));
+  p = Async_Await(task);
+  aEqual('Hello, RPG!': result);
   Async_Free(task);
 
+  // the promise keeps its own copy: changing value later is harmless
   promise = Async_Promise();
-  Async_ResolveText(promise: 'resolved text');
-  aEqual('resolved text': Async_AwaitText(promise));
+  value = 'resolved text';
+  Async_Resolve(promise: %addr(value): %size(value));
+  value = 'changed';
+  p = Async_Await(promise);
+  aEqual('resolved text': result);
   Async_Free(promise);
 end-proc;
 
@@ -551,24 +562,28 @@ dcl-proc rejectLater;
   return *null;
 end-proc;
 
-// arg: char(10) name. Result: text
+// arg: char(10) name. Result: varchar(100) greeting
 dcl-proc greet;
   dcl-pi *n pointer;
     arg pointer value;
   end-pi;
   dcl-s name char(10) based(arg);
+  dcl-s greeting varchar(100);
 
-  return Async_ReturnText('Hello, ' + %trim(name) + '!');
+  greeting = 'Hello, ' + %trim(name) + '!';
+  return Async_Return(%addr(greeting): %size(greeting));
 end-proc;
 
-// arg: a text result. Result: it in upper case
+// arg: varchar(100), the result of greet. Result: it in upper case
 dcl-proc shout;
   dcl-pi *n pointer;
     arg pointer value;
   end-pi;
-  dcl-s text varchar(65535) based(arg);
+  dcl-s text varchar(100) based(arg);
+  dcl-s upper varchar(100);
 
-  return Async_ReturnText(%upper(text));
+  upper = %upper(text);
+  return Async_Return(%addr(upper): %size(upper));
 end-proc;
 
 // Starts two tasks and awaits them. Result: int(20) their sum

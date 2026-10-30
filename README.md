@@ -14,7 +14,7 @@ Async_Free(task);
 | JavaScript / .NET                          | RPG with ASYNC                              |
 |--------------------------------------------|---------------------------------------------|
 | `Task.Run(f)` / call an `async` function   | `Async_Run(%paddr(f): arg)`                 |
-| `await t`                                  | `Async_Await(t)`, `Async_AwaitText(t)`      |
+| `await t`                                  | `Async_Await(t)`                            |
 | `try { await t } catch (e) {}`             | `monitor; Async_Await(t); on-error; endmon` |
 | `Promise.all` / `Task.WhenAll`             | `Async_AwaitAll(tasks: n)`                  |
 | `Promise.race` / `Task.WhenAny`            | `Async_AwaitAny(tasks: n)`                  |
@@ -60,8 +60,23 @@ end-proc;
 
 `Async_Return` copies the value into storage that the task owns, so the
 result is still there after the procedure returns. That storage is freed
-by `Async_Free`. For text, use `Async_ReturnText('...')` and read the result
-with `Async_AwaitText(task)`.
+by `Async_Free`. Every type works this way, text included. The caller reads
+the result through a `based` variable of the same type the task returned:
+
+```rpgle
+// in the task
+dcl-s name varchar(50);
+name = 'Ada Lovelace';
+return Async_Return(%addr(name): %size(name));
+
+// in the caller
+dcl-s p pointer;
+dcl-s name varchar(50) based(p);
+p = Async_Await(task);
+```
+
+Nothing checks that the two types match, so declare them alike, for example
+from a shared template or `LIKE` definition.
 
 If the procedure returns a pointer of its own, it must point to storage
 that outlives the procedure, such as `%alloc` or static storage. A local
