@@ -1,0 +1,37 @@
+/* ---------------------------------------------------------------- */
+/* ASYNC - exports of service program ASYNC                         */
+/*                                                                  */
+/* The signature is fixed: add new exports at the end only, never   */
+/* reorder or remove, so programs bound to ASYNC keep working.      */
+/* ---------------------------------------------------------------- */
+STRPGMEXP PGMLVL(*CURRENT) SIGNATURE('ASYNC V1')
+  EXPORT SYMBOL('Async_Run')
+  EXPORT SYMBOL('Async_Then')
+  EXPORT SYMBOL('Async_Delay')
+  EXPORT SYMBOL('Async_Promise')
+  EXPORT SYMBOL('Async_Await')
+  EXPORT SYMBOL('Async_AwaitText')
+  EXPORT SYMBOL('Async_AwaitAll')
+  EXPORT SYMBOL('Async_AwaitAny')
+  EXPORT SYMBOL('Async_Wait')
+  EXPORT SYMBOL('Async_WaitAll')
+  EXPORT SYMBOL('Async_WaitAny')
+  EXPORT SYMBOL('Async_Resolve')
+  EXPORT SYMBOL('Async_ResolveText')
+  EXPORT SYMBOL('Async_Reject')
+  EXPORT SYMBOL('Async_Cancel')
+  EXPORT SYMBOL('Async_Free')
+  EXPORT SYMBOL('Async_Status')
+  EXPORT SYMBOL('Async_IsDone')
+  EXPORT SYMBOL('Async_Result')
+  EXPORT SYMBOL('Async_ResultLen')
+  EXPORT SYMBOL('Async_ErrorId')
+  EXPORT SYMBOL('Async_ErrorText')
+  EXPORT SYMBOL('Async_Return')
+  EXPORT SYMBOL('Async_ReturnText')
+  EXPORT SYMBOL('Async_Throw')
+  EXPORT SYMBOL('Async_IsCancelRequested')
+  EXPORT SYMBOL('Async_ThrowIfCanceled')
+  EXPORT SYMBOL('Async_Current')
+  EXPORT SYMBOL('Async_Sleep')
+ENDPGMEXP

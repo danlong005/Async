@@ -1,0 +1,227 @@
+**free
+// ------------------------------------------------------------------
+// ASYNC - async/await for ILE RPG
+//
+// Prototypes and constants for service program ASYNC. Bind with
+// BNDDIR('ASYNC') or BNDSRVPGM(ASYNC).
+//
+// A task procedure takes one pointer and returns one pointer:
+//
+//   dcl-proc SlowSquare;
+//     dcl-pi *n pointer;
+//       arg pointer value;
+//     end-pi;
+//     dcl-s n int(10) based(arg);
+//     dcl-s answer int(20);
+//     answer = n * n;
+//     return Async_Return(%addr(answer): %size(answer));
+//   end-proc;
+//
+//   task = Async_Run(%paddr(SlowSquare): %addr(n));
+//   ...
+//   pAnswer = Async_Await(task);     // answer is based(pAnswer)
+//
+// Task procedures run on their own thread, so the module they are
+// in must be compiled THREAD(*CONCURRENT) (or *SERIALIZE), and the
+// job must allow threads (ALWMLTTHD(*YES) on SBMJOB or the job
+// description). In a THREAD(*CONCURRENT) module global variables
+// belong to one thread each: hand data to a task through its arg.
+// ------------------------------------------------------------------
+/if defined(ASYNC_H)
+/eof
+/endif
+/define ASYNC_H
+
+// Task states (Async_Status)
+dcl-c ASYNC_PENDING 0;
+dcl-c ASYNC_FULFILLED 1;
+dcl-c ASYNC_REJECTED 2;
+dcl-c ASYNC_CANCELED 3;
+
+// Timeout for the Async_Wait* procedures meaning "no time limit"
+dcl-c ASYNC_FOREVER -1;
+
+// Most tasks that can exist at once (handles not yet freed)
+dcl-c ASYNC_MAX_TASKS 4096;
+
+// ---------------------------------------------------------- start
+
+// Run proc(arg) on a new thread; returns the task handle.
+// proc: pointer function(arg pointer value)
+dcl-pr Async_Run int(10) extproc(*dclcase);
+  proc pointer(*proc) value;
+  arg pointer value options(*nopass);
+end-pr;
+
+// When task fulfils, run proc(result of task) on a new thread.
+// If task is rejected or canceled the new task is too, and proc
+// is not called. Like JavaScript's promise.then(proc).
+dcl-pr Async_Then int(10) extproc(*dclcase);
+  task int(10) value;
+  proc pointer(*proc) value;
+end-pr;
+
+// A task that fulfils (with *null) after ms milliseconds
+dcl-pr Async_Delay int(10) extproc(*dclcase);
+  ms int(10) value;
+end-pr;
+
+// A task with no thread of its own: it stays pending until
+// Async_Resolve, Async_ResolveText, Async_Reject or Async_Cancel.
+// Like .NET's TaskCompletionSource.
+dcl-pr Async_Promise int(10) extproc(*dclcase);
+end-pr;
+
+// ---------------------------------------------------------- await
+
+// Wait for task and return its result. If the task was rejected
+// the escape message it ended with is sent again, to the caller of
+// Async_Await, so MONITOR catches it; a canceled task sends CPF9898.
+dcl-pr Async_Await pointer extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// Async_Await for tasks whose result is text (Async_ReturnText,
+// Async_ResolveText). Text results are stored as a varchar(65535),
+// so a procedure given one (Async_Then) reads it with
+//   dcl-s text varchar(65535) based(arg);
+dcl-pr Async_AwaitText varchar(65535) extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// Wait for all of tasks(1..count). Sends the error of the first
+// (in array order) rejected or canceled task, once all are done.
+dcl-pr Async_AwaitAll extproc(*dclcase);
+  tasks int(10) dim(ASYNC_MAX_TASKS) const options(*varsize);
+  count int(10) value;
+end-pr;
+
+// Wait until one of tasks(1..count) is done; returns its index.
+// Does not send the task's error: Async_Await it for that.
+dcl-pr Async_AwaitAny int(10) extproc(*dclcase);
+  tasks int(10) dim(ASYNC_MAX_TASKS) const options(*varsize);
+  count int(10) value;
+end-pr;
+
+// Wait at most timeoutMs (ASYNC_FOREVER: no limit) for task;
+// *on if it is done. Never sends the task's error.
+dcl-pr Async_Wait ind extproc(*dclcase);
+  task int(10) value;
+  timeoutMs int(10) value;
+end-pr;
+
+// Async_Wait for all of tasks(1..count)
+dcl-pr Async_WaitAll ind extproc(*dclcase);
+  tasks int(10) dim(ASYNC_MAX_TASKS) const options(*varsize);
+  count int(10) value;
+  timeoutMs int(10) value;
+end-pr;
+
+// Async_Wait for any of tasks(1..count): index of a done task,
+// 0 on timeout
+dcl-pr Async_WaitAny int(10) extproc(*dclcase);
+  tasks int(10) dim(ASYNC_MAX_TASKS) const options(*varsize);
+  count int(10) value;
+  timeoutMs int(10) value;
+end-pr;
+
+// ---------------------------------------------------------- settle
+
+// Fulfil a promise. With len, len bytes at result are copied into
+// storage the task owns (freed by Async_Free), and Async_Await
+// returns a pointer to the copy. *off if it was already done.
+dcl-pr Async_Resolve ind extproc(*dclcase);
+  task int(10) value;
+  result pointer value options(*nopass);
+  len int(10) value options(*nopass);
+end-pr;
+
+dcl-pr Async_ResolveText ind extproc(*dclcase);
+  task int(10) value;
+  text varchar(65535) const;
+end-pr;
+
+// Reject a promise; Async_Await sends CPF9898 with text
+dcl-pr Async_Reject ind extproc(*dclcase);
+  task int(10) value;
+  text varchar(1024) const;
+end-pr;
+
+// Ask task to stop. A promise or delay is canceled at once, a
+// running task when its procedure calls Async_ThrowIfCanceled.
+// *off if the task was already done.
+dcl-pr Async_Cancel ind extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// Release a task handle and its result storage. A task still
+// running is released when it ends, so Async_Run then Async_Free
+// is "fire and forget". Unknown handles are ignored.
+dcl-pr Async_Free extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// ---------------------------------------------------------- inspect
+
+dcl-pr Async_Status int(10) extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+dcl-pr Async_IsDone ind extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// Result of a fulfilled task (*null otherwise); does not wait
+dcl-pr Async_Result pointer extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// Bytes of result storage the task owns (0 if it returned a
+// pointer of its own)
+dcl-pr Async_ResultLen int(10) extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// Message id and text a rejected task ended with
+dcl-pr Async_ErrorId char(7) extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+dcl-pr Async_ErrorText varchar(1024) extproc(*dclcase);
+  task int(10) value;
+end-pr;
+
+// ---------------------------------------------------------- inside a task
+
+// Copy len bytes at data into storage the current task owns and
+// return a pointer to it: return Async_Return(%addr(x): %size(x));
+dcl-pr Async_Return pointer extproc(*dclcase);
+  data pointer value;
+  len int(10) value;
+end-pr;
+
+dcl-pr Async_ReturnText pointer extproc(*dclcase);
+  text varchar(65535) const;
+end-pr;
+
+// End the current task procedure with an error (CPF9898 text)
+dcl-pr Async_Throw extproc(*dclcase);
+  text varchar(1024) const;
+end-pr;
+
+// Has Async_Cancel been called for the current task?
+dcl-pr Async_IsCancelRequested ind extproc(*dclcase);
+end-pr;
+
+// End the current task as canceled if Async_Cancel was called
+dcl-pr Async_ThrowIfCanceled extproc(*dclcase);
+end-pr;
+
+// Handle of the task running on this thread (0 if none)
+dcl-pr Async_Current int(10) extproc(*dclcase);
+end-pr;
+
+// Block this thread for ms milliseconds
+dcl-pr Async_Sleep extproc(*dclcase);
+  ms int(10) value;
+end-pr;
